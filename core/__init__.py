@@ -1,0 +1,1 @@
+"""Core package for the Artist Project Assistant."""

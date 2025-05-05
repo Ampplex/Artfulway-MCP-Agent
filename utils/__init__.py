@@ -1,0 +1,1 @@
+"""Utility functions for the Artist Project Assistant."""

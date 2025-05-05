@@ -1,0 +1,15 @@
+[project]
+name = "mcp-agents"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115.12",
+    "fastembed>=0.6.1",
+    "langchain-google-genai>=2.1.4",
+    "langchain-groq>=0.3.2",
+    "langchain-openai>=0.3.16",
+    "mcp-use>=1.2.8",
+    "rich>=14.0.0",
+]
