@@ -12,6 +12,7 @@ from langchain_core.language_models import BaseChatModel
 from core.prompts import ARTIST_ASSISTANT_PROMPT, RESEARCH_SUMMARY_TEMPLATE, get_search_queries
 from services.mcp_service import MCPService
 from utils.session import get_session, add_message_to_session
+import asyncio
 
 class ArtistProjectAssistant:
     """Core Assistant class for helping artists with projects."""
@@ -66,6 +67,7 @@ class ArtistProjectAssistant:
             search_prompt = f"Search for information about: {query}\nProvide a comprehensive summary of the top 3 results."
             result = await self.agent.run(search_prompt)
             search_results.append({"query": query, "results": result})
+            await asyncio.sleep(2) 
         
         # Generate research summary prompt
         research_prompt = RESEARCH_SUMMARY_TEMPLATE.format(
