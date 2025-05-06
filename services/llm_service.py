@@ -45,7 +45,8 @@ class LLMServiceFactory:
                 model=OPENAI_MODEL,
                 temperature=DEFAULT_TEMPERATURE,
                 max_tokens=DEFAULT_MAX_TOKENS,
-                max_retries=DEFAULT_MAX_RETRIES
+                timeout=DEFAULT_TIMEOUT,
+                max_retries=DEFAULT_MAX_RETRIES,
             )
         elif model_type.lower() == "gemini":
             if not GOOGLE_API_KEY:
