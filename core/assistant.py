@@ -69,6 +69,7 @@ class ArtistProjectAssistant:
 
             if query in self.search_cache:
                 result = self.search_cache[query]
+                search_results.append({"query": query, "results": result})
             else:
                 search_prompt = f"Search for information about: {query}\nProvide a comprehensive summary of the top 3 results."
                 result = await self.agent.run(search_prompt)
