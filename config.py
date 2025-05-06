@@ -26,4 +26,4 @@ DEFAULT_MAX_RETRIES = 2
 
 # MCP configuration
 MCP_CONFIG_FILE = "browser_mcp.json"
-MCP_MAX_STEPS = 2
+MCP_MAX_STEPS = 4

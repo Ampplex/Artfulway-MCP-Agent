@@ -44,6 +44,8 @@ class ArtistProjectAssistant:
             | self.prompt
             | self.llm
         )
+
+        self.search_cache = {}
     
     async def research_project(self, project_description: str) -> str:
         """
@@ -64,9 +66,13 @@ class ArtistProjectAssistant:
         # Execute searches
         for query in search_queries:
             # Use the run method with a search prompt
-            search_prompt = f"Search for information about: {query}\nProvide a comprehensive summary of the top 3 results."
-            result = await self.agent.run(search_prompt)
-            search_results.append({"query": query, "results": result})
+
+            if query in self.search_cache:
+                result = self.search_cache[query]
+            else:
+                search_prompt = f"Search for information about: {query}\nProvide a comprehensive summary of the top 3 results."
+                result = await self.agent.run(search_prompt)
+                search_results.append({"query": query, "results": result})
             await asyncio.sleep(2) 
         
         # Generate research summary prompt
