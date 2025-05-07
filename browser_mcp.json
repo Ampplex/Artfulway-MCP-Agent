@@ -2,7 +2,7 @@
   "mcpServers": {
     "serpapi": {
       "command": "python",
-      "args": ["serp-mcp/server.py"]
+      "args": ["mcp_server.py"]
     }
   }
 }
