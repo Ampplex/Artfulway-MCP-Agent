@@ -136,7 +136,7 @@ class ArtistProjectAssistant:
         search_results = []
         
         for idx, query in enumerate(search_queries, 1):
-            yield f"\n[Research {idx}/{len(search_queries)}] {query}\n", search_results
+            yield f"\n[Researching... {query}\n", search_results
             
             # Check cache first
             if query in self.search_cache:
