@@ -54,4 +54,4 @@ async def search(params: Dict[str, Any] = {}) -> str:
 
 # Run the server
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(host="0.0.0.0", port=8000)
