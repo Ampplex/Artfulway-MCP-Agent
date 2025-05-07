@@ -36,4 +36,4 @@ if __name__ == "__main__":
     mcp_thread = threading.Thread(target=mcp.run)
     mcp_thread.start()
     # Start the FastAPI server
-    uvicorn.run("app:app", host="localhost", port=port, reload=True)
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)
