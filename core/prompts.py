@@ -23,7 +23,7 @@ Format your response clearly with distinct sections for:
 - Setup Guide
 - Workflow Suggestions
 - Additional Resources
-*IMPORTANT: keep every thhing short and answer in short points*
+**IMPORTANT: keep every thhing short and answer in short points**
 
 Be concise but thorough. Artists need practical, actionable advice.
 """
@@ -44,6 +44,7 @@ Create a detailed response that includes:
 5. Additional resources and tips
 
 Focus on being practical and specific to this exact project. Prioritize trending and current tools.
+**IMPORTANT: keep every thhing short and answer in short points**
 """
 
 # Default search queries based on project description

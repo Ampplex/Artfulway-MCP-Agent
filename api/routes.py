@@ -2,6 +2,7 @@
 API routes for the Artist Project Assistant.
 """
 from fastapi import APIRouter, BackgroundTasks, Depends
+from fastapi.responses import StreamingResponse
 
 from api.models import ProjectRequest, ProjectResponse
 from core.assistant import ArtistProjectAssistant
@@ -73,6 +74,20 @@ async def process_project(
         response=response,
         session_id=assistant.session_id
     )
+
+@router.post("/process/stream")
+async def process_project_stream(
+    project_request: ProjectRequest,
+    assistant: ArtistProjectAssistant = Depends(get_assistant)
+):
+    """
+    Stream the assistant's response for a project request.
+    """
+    if project_request.follow_up_question:
+        generator = assistant.stream_followup(project_request.follow_up_question)
+    else:
+        generator = assistant.stream_project(project_request.project_description)
+    return StreamingResponse(generator, media_type="text/plain")
 
 @router.get("/health")
 async def health_check():
