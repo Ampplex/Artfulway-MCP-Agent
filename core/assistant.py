@@ -1,49 +1,45 @@
-"""
-Core Artist Project Assistant implementation with improved error handling and true streaming.
-"""
 import json
-import time
 import random
 import asyncio
 from typing import List, Dict, Any, Optional, AsyncGenerator
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain_core.runnables import RunnablePassthrough
+from langchain_core.runnables import RunnablePassthrough, RunnableLambda
 from langchain_core.language_models import BaseChatModel
 
 from core.prompts import ARTIST_ASSISTANT_PROMPT, RESEARCH_SUMMARY_TEMPLATE, get_search_queries
 from services.mcp_service import MCPService
-from utils.session import get_session, add_message_to_session
-
+from utils.session import conversation_history
 
 class ArtistProjectAssistant:
     """Core Assistant class for helping artists with projects with true streaming and improved error handling."""
     
-    def __init__(self, llm: BaseChatModel, session_id: str):
+    def __init__(self, llm: BaseChatModel):
         """
         Initialize the Artist Project Assistant.
         
         Args:
             llm: The language model to use.
-            session_id: The session ID for maintaining conversation history.
         """
+        self.conversation_history = conversation_history
         self.llm = llm
-        self.session_id = session_id
-        self.chat_history = get_session(session_id) or [SystemMessage(content=ARTIST_ASSISTANT_PROMPT)]
         
         # Create MCP agent
         self.agent = MCPService.create_agent(self.llm)
         
-        # Create the chain for follow-up questions
+        # Create the chain for both initial project and follow-up questions
         self.prompt = ChatPromptTemplate.from_messages([
             ("system", ARTIST_ASSISTANT_PROMPT),
-            MessagesPlaceholder(variable_name="chat_history"),
-            ("human", "{input}")
+            ("user", "{input}"),
+            ("user", "{chat_history}")
         ])
         
         self.chain = (
-            {"input": RunnablePassthrough(), "chat_history": lambda _: self.chat_history[1:]}
+            {
+                "input": RunnablePassthrough(),
+                "chat_history": RunnableLambda(lambda x: self._get_context_string())
+            }
             | self.prompt
             | self.llm
         )
@@ -52,10 +48,21 @@ class ArtistProjectAssistant:
         self.max_retries = 3
         self.retry_delay = 5  # seconds
     
+    def _get_context_string(self):
+        """
+        Join the chat history into a single string context, similar to main.py approach.
+        
+        Returns:
+            String representation of chat history.
+        """
+        context = "\n".join([f"{msg['role']}: {msg['message']}" for msg in self.conversation_history]) 
+        # print(f"SEE THE CONTEXT: {context}")
+        return context
+    
     async def _execute_search_with_retry(self, query: str) -> AsyncGenerator[str, None]:
         """
         Execute a search query with retry logic for handling rate limits.
-        Now returns an AsyncGenerator to enable true streaming.
+        Returns an AsyncGenerator to enable true streaming.
         
         Args:
             query: The search query to execute.
@@ -171,12 +178,11 @@ class ArtistProjectAssistant:
         Yields:
             Chunks of the response as they become available.
         """
+
         # Add user message to chat history
-        self.chat_history.append(HumanMessage(content=project_description))
-        add_message_to_session(self.session_id, HumanMessage(content=project_description))
+        self.conversation_history.append({"role": "user", "message": f"Project Description: {project_description}"})
 
         # Stream search results while collecting them
-        search_results = []
         final_results = []
         async for status_or_chunk, current_results in self._collect_search_results(project_description):
             yield status_or_chunk
@@ -191,23 +197,26 @@ class ArtistProjectAssistant:
             search_results=json.dumps(final_results, indent=2)
         )
 
-        # Stream the LLM synthesis
-        response_content = ""
-        async for chunk in self.llm.astream([
+        # Create messages for LLM synthesis
+        messages = [
             SystemMessage(content=ARTIST_ASSISTANT_PROMPT),
             HumanMessage(content=research_prompt)
-        ]):
+        ]
+
+        # Stream the LLM synthesis
+        response_content = ""
+        async for chunk in self.llm.astream(messages):
             if hasattr(chunk, "content") and chunk.content:
                 response_content += chunk.content
                 yield chunk.content
 
         # Add the final response to chat history
-        self.chat_history.append(AIMessage(content=response_content))
-        add_message_to_session(self.session_id, AIMessage(content=response_content))
+        self.conversation_history.append({"role": "assistant", "message": response_content})
 
     async def stream_followup(self, user_input: str) -> AsyncGenerator[str, None]:
         """
         Stream the LLM response for a follow-up question with true streaming.
+        Uses the chain for consistency with initial project approach.
         
         Args:
             user_input: The follow-up question or request.
@@ -216,24 +225,27 @@ class ArtistProjectAssistant:
             Chunks of the response as they become available.
         """
         # Add user message to chat history
-        self.chat_history.append(HumanMessage(content=user_input))
-        add_message_to_session(self.session_id, HumanMessage(content=user_input))
+        self.conversation_history.append({"role": "user", "message": user_input})
 
-        # Stream the LLM response
+        # Generate context from conversation history
+        
+        # Debug print using the constructed context, not self.context
+        # print(f"Conversation history before followup: {self._get_context_string()}")
+
+        # Use the chain for streaming the response
         response_content = ""
-        async for chunk in self.llm.astream([
-            SystemMessage(content=ARTIST_ASSISTANT_PROMPT),
-            *self.chat_history[1:],  # Include all history except the system message
-        ]):
+        async for chunk in self.chain.astream({"input": user_input}):
             if hasattr(chunk, "content") and chunk.content:
                 response_content += chunk.content
                 yield chunk.content
                 
-        # Add the final response to chat history
-        self.chat_history.append(AIMessage(content=response_content))
-        add_message_to_session(self.session_id, AIMessage(content=response_content))
+        # Add the assistant's response to conversation history
+        self.conversation_history.append({"role": "assistant", "message": response_content})
         
-    # The following methods remain for backward compatibility but now use streaming internally
+        # Debug print using the conversation_history
+        # print(f"Conversation history after followup: {self.conversation_history}")
+        
+    # Legacy methods that now use streaming internally
     
     async def research_project(self, project_description: str) -> str:
         """
@@ -259,7 +271,7 @@ class ArtistProjectAssistant:
     async def process_project(self, project_description: str) -> str:
         """
         Process a new project description with research and recommendations.
-        Now uses the streaming implementation internally.
+        Uses the streaming implementation internally.
         
         Args:
             project_description: The project description to process.
@@ -272,7 +284,7 @@ class ArtistProjectAssistant:
     async def process_followup(self, user_input: str) -> str:
         """
         Process a follow-up question or request within the current project context.
-        Now uses the streaming implementation internally.
+        Uses the streaming implementation internally.
         
         Args:
             user_input: The follow-up question or request.
@@ -311,5 +323,12 @@ class ArtistProjectAssistant:
         Focus only on reliable information you're confident about, and be clear about any limitations in your advice.
         """
         
-        result = await self.llm.ainvoke([SystemMessage(content=ARTIST_ASSISTANT_PROMPT), HumanMessage(content=fallback_prompt)])
-        return result.content
+        # Format context like in main.py
+        context = self._get_context_string()
+        
+        # Add fallback prompt to context
+        combined_prompt = f"{context}\n\nuser: {fallback_prompt}"
+        
+        # Use the chain for generating response
+        response = await self.chain.ainvoke({"input": fallback_prompt})
+        return response.content

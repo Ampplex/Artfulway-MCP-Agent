@@ -1,8 +1,8 @@
 {
   "mcpServers": {
-    "serpapi": {
-      "command": "python",
-      "args": ["mcp_server.py"]
+    "duckduckgo-search": {
+      "command": "npx",
+      "args": ["-y", "duckduckgo-mcp-server"]
     }
   }
 }

@@ -8,33 +8,26 @@ from api.models import ProjectRequest, ProjectResponse
 from core.assistant import ArtistProjectAssistant
 from core.prompts import ARTIST_ASSISTANT_PROMPT
 from services.llm_service import LLMServiceFactory
-from utils.session import create_session, get_session
 
 router = APIRouter()
 
 async def get_assistant(
-    model_type: str = "gemini",
-    session_id: str = None
+    model_type: str = "gemini"
 ) -> ArtistProjectAssistant:
     """
     Dependency for getting an Artist Project Assistant instance.
     
     Args:
         model_type: The type of model to use.
-        session_id: The session ID for conversation history.
         
     Returns:
         An ArtistProjectAssistant instance.
     """
-    # Create session if not provided
-    if not session_id or not get_session(session_id):
-        session_id = create_session(ARTIST_ASSISTANT_PROMPT)
-    
-    # Get LLM
+    # Get LLM instance
     llm = LLMServiceFactory.create_llm(model_type)
     
-    # Return assistant
-    return ArtistProjectAssistant(llm=llm, session_id=session_id)
+    # Return assistant (no session tracking)
+    return ArtistProjectAssistant(llm=llm)
 
 async def process_request_background(
     assistant: ArtistProjectAssistant,
@@ -64,15 +57,14 @@ async def process_project(
     """
     Process a project request and return the assistant's response.
     
-    - For new projects, provide the project_description
-    - For follow-up questions, provide follow_up_question and session_id
+    - For new projects: provide project_description
+    - For follow-ups: provide follow_up_question
     """
-    # Process the request
     response = await process_request_background(assistant, project_request)
     
     return ProjectResponse(
         response=response,
-        session_id=assistant.session_id
+        session_id=None  # Maintain response model but return None for session
     )
 
 @router.post("/process/stream")
@@ -82,12 +74,22 @@ async def process_project_stream(
 ):
     """
     Stream the assistant's response for a project request.
+    
+    Returns:
+        StreamingResponse with conversation chunks.
     """
-    if project_request.follow_up_question:
-        generator = assistant.stream_followup(project_request.follow_up_question)
-    else:
-        generator = assistant.stream_project(project_request.project_description)
-    return StreamingResponse(generator, media_type="text/plain")
+    async def generate_stream():
+        if project_request.follow_up_question:
+            async for chunk in assistant.stream_followup(project_request.follow_up_question):
+                yield chunk
+        else:
+            async for chunk in assistant.stream_project(project_request.project_description):
+                yield chunk
+    
+    return StreamingResponse(
+        generate_stream(),
+        media_type="text/event-stream"
+    )
 
 @router.get("/health")
 async def health_check():

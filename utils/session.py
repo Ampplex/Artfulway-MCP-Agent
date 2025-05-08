@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Base
 
 # Global session storage
 sessions: Dict[str, List[BaseMessage]] = {}
+conversation_history = []
 
 def create_session(system_prompt: str) -> str:
     """
